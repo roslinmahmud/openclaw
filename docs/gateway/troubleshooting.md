@@ -230,7 +230,7 @@ Related:
 
 - [OpenAI-compatible endpoints](/gateway/configuration-reference#openai-compatible-endpoints)
 - [Provider configuration](/providers)
-- [Logs](/reference/logs)
+- [Gateway logging](/gateway/logging)
 
 ## Local OpenAI-compatible backend passes direct probes but agent runs fail
 
