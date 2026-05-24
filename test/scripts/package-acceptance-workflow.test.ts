@@ -118,7 +118,9 @@ describe("package acceptance workflow", () => {
     expect(hydrate.if).toBe("${{ inputs.crabbox_job != 'hydrate-github' }}");
     expect(workflowStep(hydrate, "Setup Node.js").uses).toBe("actions/setup-node@v6");
     expect(workflowStep(hydrate, "Setup Node.js").with?.["node-version"]).toBe("24");
-    expect(workflowStep(hydrate, "Setup pnpm and dependencies").run).toContain("corepack enable");
+    expect(workflowStep(hydrate, "Setup pnpm and dependencies").run).toContain(
+      'corepack enable --install-directory "$PNPM_HOME"',
+    );
     expect(workflowStep(hydrate, "Setup pnpm and dependencies").run).toContain("COREPACK_HOME");
     expect(workflowStep(hydrate, "Mark Crabbox ready").run).toContain("COREPACK_HOME");
     expect(workflowStep(hydrate, "Hydrate provider env helper").env).toBeUndefined();
@@ -143,7 +145,11 @@ describe("package acceptance workflow", () => {
     expect(workflow).toContain("- npm");
     expect(workflow).toContain("- ref");
     expect(workflow).toContain("- url");
+    expect(workflow).toContain("- trusted-url");
     expect(workflow).toContain("- artifact");
+    expect(workflow).toContain("trusted_source_id:");
+    expect(workflow).toContain("TRUSTED_SOURCE_ID: ${{ inputs.trusted_source_id }}");
+    expect(workflow).toContain('--trusted-source-id "$TRUSTED_SOURCE_ID"');
     expect(workflow).toContain("scripts/resolve-openclaw-package-candidate.mjs");
     expect(workflow).toContain('--package-ref "$PACKAGE_REF"');
     expect(workflow).toContain('gh run download "$ARTIFACT_RUN_ID"');
@@ -250,6 +256,9 @@ describe("package acceptance workflow", () => {
     expect(workflow).toContain("--json status,conclusion,url,attempt,headSha,jobs");
     expect(workflow).toContain(
       '[[ "$CHILD_WORKFLOW_REF" == release-ci/* && -n "${TARGET_SHA// }" && "$head_sha" != "$TARGET_SHA" ]]',
+    );
+    expect(workflow).toContain(
+      'gh_with_retry workflow run "$workflow" --ref "$CHILD_WORKFLOW_REF" "$@"',
     );
     expect(workflow).toContain("child run used ${head_sha}, expected ${TARGET_SHA}");
     expect(workflow).toContain(
@@ -868,7 +877,9 @@ describe("package artifact reuse", () => {
     const dispatchStep = workflowStep(npmTelegramJob, "Dispatch and monitor npm Telegram E2E");
 
     expect(workflow).toContain("CHILD_WORKFLOW_REF: ${{ github.ref_name }}");
-    expect(workflow).toContain('gh workflow run "$workflow" --ref "$CHILD_WORKFLOW_REF" "$@"');
+    expect(workflow).toContain(
+      'gh_with_retry workflow run "$workflow" --ref "$CHILD_WORKFLOW_REF" "$@"',
+    );
     expect(preparePackageJob.name).toBe("Prepare release package artifact");
     expect(preparePackageJob.needs).toEqual(["resolve_target", "docker_runtime_assets_preflight"]);
     expect(preparePackageJob.if).toContain("inputs.rerun_group == 'all'");
@@ -901,7 +912,8 @@ describe("package artifact reuse", () => {
       TARGET_SHA: "${{ needs.resolve_target.outputs.sha }}",
     });
     expectTextToIncludeAll(dispatchStep.run, [
-      'gh workflow run npm-telegram-beta-e2e.yml --ref "$CHILD_WORKFLOW_REF" "${args[@]}"',
+      'gh_with_retry workflow run npm-telegram-beta-e2e.yml --ref "$CHILD_WORKFLOW_REF" "${args[@]}"',
+      'before_json="$(gh_with_retry run list --workflow npm-telegram-beta-e2e.yml',
       '-f harness_ref="$TARGET_SHA"',
       'args=(-f package_spec="${PACKAGE_SPEC:-openclaw@beta}"',
       'if [[ -z "${PACKAGE_SPEC// }" ]]; then',
